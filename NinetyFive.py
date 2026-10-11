@@ -439,7 +439,11 @@ class NinetyFiveListener(sublime_plugin.EventListener):
         ):
             return
 
-        cwd = sublime.active_window().folders()[0]
+        folders = sublime.active_window().folders()
+        if not folders:
+            return
+
+        cwd = folders[0]
 
         if cwd is None or cwd == "":
             return
