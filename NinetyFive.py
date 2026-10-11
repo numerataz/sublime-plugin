@@ -85,14 +85,14 @@ class WebSocketHandler:
                 )
                 self._ws_app.run_forever()
             except Exception as e:
-                print(f"Failed to connect: {e}")
+                debug_log(f"Failed to connect: {e}")
 
     def _on_open(self, ws):
         debug_log("Connected to WebSocket server...")
         self._reconnect_delay = 1  # Back to the lowest delay
 
     def _on_error(self, ws, error):
-        print(f"Websocket Error: {error}")
+        debug_log(f"Websocket Error: {error}")
         if self._reconnect:
             self._reconnect_delay = min(
                 self._reconnect_delay * 2, 32
@@ -167,7 +167,7 @@ class WebSocketHandler:
                         )
                     )
             except Exception as e:
-                print("failed to send commit", e)
+                debug_log("failed to send commit", e)
 
         elif data_type == "get-blob":
             hash = data.get("commitHash")
@@ -216,7 +216,7 @@ class WebSocketHandler:
                         )
                     )
             except Exception as e:
-                print("failed to send blob", e)
+                debug_log("failed to send blob", e)
 
         elif data.get("r") is not None:
             if data["r"] == active_request_id:
@@ -282,7 +282,7 @@ class WebSocketHandler:
             try:
                 self._ws_app.send(message)
             except Exception as e:
-                print(f"Failed to send message: {e}")
+                debug_log(f"Failed to send message: {e}")
 
     def close(self):
         self._reconnect = False
@@ -356,7 +356,7 @@ class PurchaseNinetyFiveCommand(sublime_plugin.TextCommand):
                 time.sleep(10)
 
             except Exception as e:
-                print(f"Error polling for API key: {e}")
+                debug_log(f"Error polling for API key: {e}")
                 time.sleep(2)
 
 
@@ -463,7 +463,7 @@ class NinetyFiveListener(sublime_plugin.EventListener):
                         json.dumps({"type": "set-workspace"})
                     )
         except Exception as e:
-            print("failed setting workspace", e)
+            debug_log("failed setting workspace", e)
 
     def on_activated(self, view):
         update_enabled_status(view)
