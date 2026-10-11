@@ -197,7 +197,9 @@ class WebSocketHandler:
 
         elif data.get("r") is not None:
             if data["r"] == active_request_id:
-                completion_fragment = data["v"]
+                completion_fragment = data.get("v")
+                if completion_fragment is None and data.get("error"):
+                    print("NinetyFive server error:", data["error"])
                 if isinstance(completion_fragment, str):
                     for char in completion_fragment:
                         self._process_completion(char)
