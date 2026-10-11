@@ -1,0 +1,10 @@
+[project]
+name = "ninetyfive-sublime"
+version = "0.0.0"
+requires-python = ">=3.8"
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
