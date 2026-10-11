@@ -12,6 +12,10 @@
         "command": "send_ninety_five_key"
     },
     {
+        "caption": "NinetyFive: Toggle (on/off)",
+        "command": "toggle_ninety_five"
+    },
+    {
         "caption": "NinetyFive: Settings",
         "command": "edit_settings",
         "args": {

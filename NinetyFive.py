@@ -41,6 +41,29 @@ def starts_with_whitespace(text):
     return text[0].isspace() if text else False
 
 
+def is_enabled_for(view):
+    settings = sublime.load_settings("NinetyFive.sublime-settings")
+    if not settings.get("enabled", True):
+        return False
+
+    disabled_syntaxes = settings.get("disabled_syntaxes", [])
+    syntax = view.syntax()
+    if syntax and (
+        syntax.name in disabled_syntaxes or syntax.scope in disabled_syntaxes
+    ):
+        return False
+
+    return True
+
+
+def update_enabled_status(view):
+    settings = sublime.load_settings("NinetyFive.sublime-settings")
+    if settings.get("enabled", True):
+        view.erase_status("ninetyfive-enabled")
+    else:
+        view.set_status("ninetyfive-enabled", "NinetyFive: off")
+
+
 # Websocket client
 class WebSocketHandler:
     def __init__(self, url):
@@ -380,6 +403,19 @@ class SetNinetyFiveKeyCommand(sublime_plugin.TextCommand):
         sublime.save_settings("NinetyFive.sublime-settings")
 
 
+class ToggleNinetyFiveCommand(sublime_plugin.ApplicationCommand):
+    def run(self):
+        global suggestion
+        settings = sublime.load_settings("NinetyFive.sublime-settings")
+        settings.set("enabled", not settings.get("enabled", True))
+        sublime.save_settings("NinetyFive.sublime-settings")
+        suggestion = ""
+
+        for window in sublime.windows():
+            for view in window.views():
+                update_enabled_status(view)
+
+
 class NinetyFiveListener(sublime_plugin.EventListener):
     def __init__(self):
         global websocket_instance
@@ -429,6 +465,9 @@ class NinetyFiveListener(sublime_plugin.EventListener):
         except Exception as e:
             print("failed setting workspace", e)
 
+    def on_activated(self, view):
+        update_enabled_status(view)
+
     def on_modified(self, view):
         global active_request_id, websocket_instance, accumulated_completion, suggestion
         accumulated_completion = ""
@@ -440,6 +479,9 @@ class NinetyFiveListener(sublime_plugin.EventListener):
             or not view.window()
             or view.window().active_view() != view
         ):
+            return
+
+        if not is_enabled_for(view):
             return
 
         folders = sublime.active_window().folders()
@@ -510,7 +552,7 @@ class NinetyFiveListener(sublime_plugin.EventListener):
 
     def on_query_completions(self, view, prefix, locations):
         global suggestion, active_request_id
-        if not suggestion:
+        if not suggestion or not is_enabled_for(view):
             return None
 
         completions = [

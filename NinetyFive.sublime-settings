@@ -1,4 +1,6 @@
 {
   "server_endpoint": "wss://api.ninetyfive.gg",
-  "debug": false
+  "debug": false,
+  "enabled": true,
+  "disabled_syntaxes": []
 }
