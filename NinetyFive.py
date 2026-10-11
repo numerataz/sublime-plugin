@@ -32,6 +32,11 @@ def plugin_unloaded():
         websocket_instance = None
 
 
+def debug_log(*args):
+    if sublime.load_settings("NinetyFive.sublime-settings").get("debug", False):
+        print("NinetyFive:", *args)
+
+
 def starts_with_whitespace(text):
     return text[0].isspace() if text else False
 
@@ -60,7 +65,7 @@ class WebSocketHandler:
                 print(f"Failed to connect: {e}")
 
     def _on_open(self, ws):
-        print("Connected to WebSocket server...")
+        debug_log("Connected to WebSocket server...")
         self._reconnect_delay = 1  # Back to the lowest delay
 
     def _on_error(self, ws, error):
@@ -71,9 +76,9 @@ class WebSocketHandler:
             )  # 32s as a max is ok?
 
     def _on_close(self, ws, close_status_code, message):
-        print(f"Websocket closed with code {close_status_code} {message}")
+        debug_log(f"Websocket closed with code {close_status_code} {message}")
         if self._reconnect:
-            print(f"Attempting to reconnect in {self._reconnect_delay} seconds...")
+            debug_log(f"Attempting to reconnect in {self._reconnect_delay} seconds...")
             time.sleep(self._reconnect_delay)
 
     def _on_message(self, ws, message):
@@ -204,10 +209,6 @@ class WebSocketHandler:
         view = sublime.active_window().active_view()
 
         if completion_fragment is not None:
-            print(
-                accumulated_completion.encode("utf-8"),
-                completion_fragment.encode("utf-8"),
-            )
             if len(accumulated_completion) == 0 and completion_fragment is None:
                 self.send_message(
                     json.dumps(
@@ -449,14 +450,13 @@ class NinetyFiveListener(sublime_plugin.EventListener):
             return
 
         try:
-            print("about to check ignore", view.file_name())
             raw_ignore = subprocess.check_output(
                 ["git", "check-ignore", view.file_name()], cwd=cwd, text=True
             ).strip()
 
             # Do not leak ignored files
             if len(raw_ignore) > 0:
-                print("file is ignored")
+                debug_log("file is ignored")
                 return
         except subprocess.CalledProcessError as e:
             if e.returncode == 1:
@@ -511,7 +511,6 @@ class NinetyFiveListener(sublime_plugin.EventListener):
         if not suggestion:
             return None
 
-        print("suggestion", suggestion)
         completions = [
             sublime.CompletionItem(
                 suggestion,
