@@ -1,3 +1,4 @@
 {
-  "server_endpoint": "wss://api.ninetyfive.gg"
+  "server_endpoint": "wss://api.ninetyfive.gg",
+  "debug": false
 }
