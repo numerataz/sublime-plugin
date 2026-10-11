@@ -511,10 +511,10 @@ class NinetyFiveListener(sublime_plugin.EventListener):
                 # Exit code 1 means its not ignored
                 pass
             else:
-                print("failed to check-ignore", e)
+                debug_log("failed to check-ignore", e)
                 return
         except Exception as e:
-            print("failed to check-ignore", e)
+            debug_log("failed to check-ignore", e)
             return
 
         # Send the file
