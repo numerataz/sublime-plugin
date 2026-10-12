@@ -493,10 +493,6 @@ class NinetyFiveListener(sublime_plugin.EventListener):
         if cwd is None or cwd == "":
             return
 
-        # Skip views that are not backed by a file
-        if not view.file_name():
-            return
-
         try:
             raw_ignore = subprocess.check_output(
                 ["git", "check-ignore", view.file_name()], cwd=cwd, text=True
@@ -511,11 +507,9 @@ class NinetyFiveListener(sublime_plugin.EventListener):
                 # Exit code 1 means its not ignored
                 pass
             else:
-                debug_log("failed to check-ignore", e)
-                return
+                raise
         except Exception as e:
             debug_log("failed to check-ignore", e)
-            return
 
         # Send the file
         websocket_instance.send_message(
