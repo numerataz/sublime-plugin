@@ -24,6 +24,27 @@ accumulated_completion = ""
 suggestion = ""
 active_commit = None
 
+# Last file state sent to the server, used to compute file-delta messages
+active_view_id = None
+active_content = None
+
+
+def compute_delta(old_text, new_text):
+    """Returns (start, end, text) in UTF-8 byte offsets of old_text."""
+    i = 0
+    max_prefix = min(len(old_text), len(new_text))
+    while i < max_prefix and old_text[i] == new_text[i]:
+        i += 1
+
+    j = 0
+    max_suffix = min(len(old_text), len(new_text)) - i
+    while j < max_suffix and old_text[-1 - j] == new_text[-1 - j]:
+        j += 1
+
+    start = len(old_text[:i].encode("utf-8"))
+    end = len(old_text[: len(old_text) - j].encode("utf-8"))
+    return start, end, new_text[i : len(new_text) - j]
+
 
 def plugin_unloaded():
     global websocket_instance
@@ -88,7 +109,11 @@ class WebSocketHandler:
                 debug_log(f"Failed to connect: {e}")
 
     def _on_open(self, ws):
+        global active_view_id, active_content
         debug_log("Connected to WebSocket server...")
+        # Server state is lost on reconnect, so resend the full file next time
+        active_view_id = None
+        active_content = None
         self._reconnect_delay = 1  # Back to the lowest delay
 
     def _on_error(self, ws, error):
@@ -470,6 +495,7 @@ class NinetyFiveListener(sublime_plugin.EventListener):
 
     def on_modified(self, view):
         global active_request_id, websocket_instance, accumulated_completion, suggestion
+        global active_view_id, active_content
         accumulated_completion = ""
         suggestion = ""
 
@@ -517,16 +543,32 @@ class NinetyFiveListener(sublime_plugin.EventListener):
             debug_log("failed to check-ignore", e)
             return
 
-        # Send the file
-        websocket_instance.send_message(
-            json.dumps(
-                {
-                    "type": "file-content",
-                    "path": view.window().folders()[0],
-                    "text": view.substr(sublime.Region(0, view.size())),
-                }
+        # Send the full file once, then only deltas
+        content = view.substr(sublime.Region(0, view.size()))
+        if active_view_id != view.id() or active_content is None:
+            websocket_instance.send_message(
+                json.dumps(
+                    {
+                        "type": "file-content",
+                        "path": view.window().folders()[0],
+                        "text": content,
+                    }
+                )
             )
-        )
+        elif active_content != content:
+            start, end, text = compute_delta(active_content, content)
+            websocket_instance.send_message(
+                json.dumps(
+                    {
+                        "type": "file-delta",
+                        "start": start,
+                        "end": end,
+                        "text": text,
+                    }
+                )
+            )
+        active_view_id = view.id()
+        active_content = content
 
         # Cancel everything else!
         if active_request_id:
