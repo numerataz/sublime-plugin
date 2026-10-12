@@ -13,6 +13,7 @@ import sublime
 import sublime_plugin
 import websocket
 
+from .check_ignore import IgnoreChecker
 from .git import parse_numstat, parse_tree
 
 # Since we're gonna use `plugin_unloaded` to close the connection, we need the ws handler available
@@ -27,6 +28,9 @@ active_commit = None
 # Last file state sent to the server, used to compute file-delta messages
 active_view_id = None
 active_content = None
+
+# Answers "is this file git-ignored?" with one long-running git process per folder
+ignore_checker = IgnoreChecker()
 
 
 def compute_delta(old_text, new_text):
@@ -48,6 +52,7 @@ def compute_delta(old_text, new_text):
 
 def plugin_unloaded():
     global websocket_instance
+    ignore_checker.close()
     if websocket_instance:
         websocket_instance.close()
         websocket_instance = None
@@ -493,6 +498,11 @@ class NinetyFiveListener(sublime_plugin.EventListener):
     def on_activated(self, view):
         update_enabled_status(view)
 
+    def on_post_save(self, view):
+        # Ignore rules may have changed: have git re-read them
+        if os.path.basename(view.file_name() or "") == ".gitignore":
+            ignore_checker.invalidate()
+
     def on_modified(self, view):
         global active_request_id, websocket_instance, accumulated_completion, suggestion
         global active_view_id, active_content
@@ -519,23 +529,13 @@ class NinetyFiveListener(sublime_plugin.EventListener):
         if cwd is None or cwd == "":
             return
 
-        try:
-            raw_ignore = subprocess.check_output(
-                ["git", "check-ignore", view.file_name()], cwd=cwd, text=True
-            ).strip()
-
+        ignored = ignore_checker.is_ignored(cwd, view.file_name())
+        if ignored is None:
+            debug_log("failed to check-ignore")
+        elif ignored:
             # Do not leak ignored files
-            if len(raw_ignore) > 0:
-                debug_log("file is ignored")
-                return
-        except subprocess.CalledProcessError as e:
-            if e.returncode == 1:
-                # Exit code 1 means its not ignored
-                pass
-            else:
-                raise
-        except Exception as e:
-            debug_log("failed to check-ignore", e)
+            debug_log("file is ignored")
+            return
 
         # Send the full file once, then only deltas
         content = view.substr(sublime.Region(0, view.size()))
