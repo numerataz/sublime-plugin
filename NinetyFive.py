@@ -253,11 +253,13 @@ class WebSocketHandler:
                 completion_fragment = data.get("v")
                 if completion_fragment is None and data.get("error"):
                     debug_log("server error:", data["error"])
+                # Frames may carry only a flush marker and no "v"; those add no
+                # text. The stream ends only on an explicit "end" frame.
                 if isinstance(completion_fragment, str):
                     for char in completion_fragment:
                         self._process_completion(char)
-                else:
-                    self._process_completion(completion_fragment)
+                if data.get("end") and data["r"] == active_request_id:
+                    self._process_completion(None)
 
     def _process_completion(self, completion_fragment):
         global active_request_id, accumulated_completion, suggestion
